@@ -167,7 +167,8 @@ void AudioStream::gatherNoiseTracks(size_t framesPerBuffer)
 
 void AudioStream::preload_noise_tracks(std::string map_choose, bool is_rain, bool is_night)
 {
-	std::string folder_path = "C:\\Users\\kemerios\\Desktop\\tarkov_sounds\\" + map_choose; 
+	// change the folder path to your folder path
+	std::string folder_path = "..\\..\\Desktop\\tarkov_sounds\\" + map_choose;
 
 	if (map_choose == "factory")
 	{
