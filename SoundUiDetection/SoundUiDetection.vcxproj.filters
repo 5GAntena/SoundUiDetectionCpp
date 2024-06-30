@@ -48,9 +48,6 @@
     <ClCompile Include="SoundUi.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="CalcSTFT.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="InputTrack.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -119,7 +116,7 @@
     <ClInclude Include="Types.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="CalcSTFT.h">
+    <ClInclude Include="to_bored.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

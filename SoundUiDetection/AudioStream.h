@@ -1,4 +1,5 @@
 #pragma once
+
 #include <portaudio.h>
 #include <iostream>
 #include <string>
@@ -7,17 +8,17 @@
 #include <fstream>
 #include <sndfile.h>
 #include <map>
-#include <numeric>
 
 #include "InputTrack.h"
 #include "OutputTrack.h"
 #include "NoiseReduction.h"
-#include "CalcSTFT.h"
+
+#include "to_bored.h"
 
 class AudioStream
 {
 public:
-	AudioStream(const NoiseReduction::Settings& settings) :
+	AudioStream(const NoiseReduction::Settings settings) :
 		noiseReductionSettings(settings)
 	{
 	}
@@ -48,6 +49,7 @@ private:
 	double SAMPLE_RATE = 44100;
 	size_t BUFFER_SIZE = 2048;
 	int CHANNEL_COUNT = 2;
+
 	size_t NOISE_TOTAL = CHANNEL_COUNT * BUFFER_SIZE;
 
 	float* in_buffer = (float*)malloc(BUFFER_SIZE * 2 * sizeof(float));
@@ -61,21 +63,16 @@ private:
 	const char* filename;
 
 	std::vector<std::string> noise_paths;
-	std::vector<std::vector<InputTrack>> noise_tracks;
-	std::vector<std::vector<InputTrack>> noise_cache;
+	std::vector<InputTrack> noise_tracks;
+	std::vector<InputTrack> noise_cache;
 
 	std::vector<float*> noiseArray;
 	int noise_index = 0;
 	bool preload = false;
 
-	std::vector<InputTrack> audio_tracks;
-	std::vector<InputTrack> audio_cache;
-	std::vector<InputTrack> audio_proc_cache;
-
-	std::vector<OutputTrack> outputTracks;
-
-	std::vector<float> leftChannel;
-	std::vector<float> rightChannel;
+	FloatVector audio_tracks;
+	FloatVector audio_cache;
+	FloatVector audio_proc_cache;
 
 	bool mapChoosen = false;
 
@@ -86,5 +83,5 @@ private:
 
 	PaStream* stream_;
 	NoiseReduction::Settings noiseReductionSettings;
-	CalcSTFT calc;
+	BoringFunc bored;
 };

@@ -9,6 +9,7 @@ public:
     const FloatVector& Buffer() const { return mBuffer; }
     size_t Length() const { return mBuffer.size(); }
     size_t Read(float* buffer, size_t length);
+    void Clear() { mBuffer.clear(); };
 private:
     FloatVector mBuffer;
     size_t mPosition;

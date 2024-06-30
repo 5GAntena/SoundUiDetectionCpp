@@ -42,7 +42,7 @@ enum DiscriminationMethod {
     DM_OLD_METHOD,
 
     DM_N_METHODS,
-    DM_DEFAULT_METHOD = DM_MEDIAN,
+    DM_DEFAULT_METHOD = DM_SECOND_GREATEST,
 };
 
 
@@ -84,7 +84,7 @@ const struct WindowTypesInfo {
 
 enum {
     DEFAULT_WINDOW_SIZE_CHOICE = 8, // corresponds to 2048
-    DEFAULT_STEPS_PER_WINDOW_CHOICE = 1 // corresponds to 4, minimum for WT_HANN_HANN
+    DEFAULT_STEPS_PER_WINDOW_CHOICE = 4 // corresponds to 4, minimum for WT_HANN_HANN
 };
 
 enum NoiseReductionChoice {
@@ -520,15 +520,15 @@ void NoiseReductionWorker::RotateHistoryWindows()
 
 void NoiseReductionWorker::FinishTrackStatistics(Statistics& statistics)
 {
-    const int windows = statistics.mTrackWindows;
-    const int multiplier = statistics.mTotalWindows;
-    const int denom = windows + multiplier;
+    const auto windows = statistics.mTrackWindows;
+    const auto multiplier = statistics.mTotalWindows;
+    const auto denom = windows + multiplier;
 
     // Combine averages in case of multiple profile tracks.
     if (windows)
-        for (int ii = 0, nn = statistics.mMeans.size(); ii < nn; ++ii) {
-            float& mean = statistics.mMeans[ii];
-            float& sum = statistics.mSums[ii];
+        for (size_t ii = 0, nn = statistics.mMeans.size(); ii < nn; ++ii) {
+            auto& mean = statistics.mMeans[ii];
+            auto& sum = statistics.mSums[ii];
             mean = (mean * multiplier + sum) / denom;
             // Reset for next track
             sum = 0;
@@ -619,10 +619,10 @@ bool NoiseReductionWorker::Classify(const Statistics& statistics, int band)
         // either the mistake of classifying noise as not noise
         // (leaving a musical noise chime), or the opposite
         // (distorting the signal with a drop out).
-        if (mNWindowsToExamine == 3)
+        if (mNWindowsToExamine <= 3)
             // No different from second greatest.
             goto secondGreatest;
-        else if (mNWindowsToExamine == 5)
+        else if (mNWindowsToExamine <= 5)
         {
             float greatest = 0.0, second = 0.0, third = 0.0;
             for (unsigned ii = 0; ii < mNWindowsToExamine; ++ii) {
@@ -894,12 +894,12 @@ NoiseReduction::Settings::Settings() {
     mWindowTypes = WT_DEFAULT_WINDOW_TYPES;
     mWindowSizeChoice = DEFAULT_WINDOW_SIZE_CHOICE;
     mStepsPerWindowChoice = DEFAULT_STEPS_PER_WINDOW_CHOICE;
-    mMethod = DM_MEDIAN;
+    mMethod = DM_DEFAULT_METHOD;
     mOldSensitivity = DEFAULT_OLD_SENSITIVITY;
     mNoiseReductionChoice = NRC_REDUCE_NOISE;
 
     mNewSensitivity = 6.0;
-    mNoiseGain = 12.0;
+    mNoiseGain = 25.0;
     mAttackTime = 0.02;
     mReleaseTime = 0.10;
     mFreqSmoothingBands = 0;

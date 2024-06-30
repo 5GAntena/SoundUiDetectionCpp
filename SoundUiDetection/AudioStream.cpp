@@ -3,116 +3,6 @@
 
 namespace fs = std::filesystem;
 
-void addHashesBelow(const std::string& input)
-{
-	std::string hashes(input.length(), '#');
-	std::cout << hashes << std::endl;
-}
-
-float calculateAverage(const std::vector<float>& channel) 
-{
-	float sum = 0.0f;
-	for (float sample : channel) 
-	{
-
-		sum += std::abs(sample);
-	}
-	return sum / channel.size();
-}
-
-float calculateNeedleAngle(const std::vector<float>& leftChannel, const std::vector<float>& rightChannel) 
-{
-
-	if (leftChannel.empty() || rightChannel.empty()) 
-	{
-		return 0.0f;
-	}
-
-	float leftLevel = calculateAverage(leftChannel);
-	float rightLevel = calculateAverage(rightChannel);
-
-	float normalizedDifference = (rightLevel - leftLevel) / (leftLevel + rightLevel);
-	return normalizedDifference * 90.0f;
-}
-
-InputTrack bufferToOneTrack(const float* in, int channels_count, int channel, size_t bufferSize)
-{
-	FloatVector buffer(bufferSize);
-
-	float* wptr = &buffer[0];
-
-	for (size_t frame = 0; frame < bufferSize; frame++)
-	{
-		size_t index = frame * channels_count + channel;
-
-		wptr[frame] = in[index];
-	}
-
-	return InputTrack(buffer);
-}
-
-std::vector<InputTrack> bufferToTracks(const float* in, int channel_count, size_t bufferSize)
-{
-	std::vector<InputTrack> tracks;
-
-	for (int channel = 0; channel < channel_count; channel++)
-	{
-		InputTrack track = bufferToOneTrack(in, channel_count, channel, bufferSize);
-		tracks.push_back(track);
-	}
-
-	return tracks;
-}
-
-float* interleaveChannels(const std::vector<float>& leftChannel, const std::vector<float>& rightChannel) {
-	if (leftChannel.size() != rightChannel.size())
-	{
-		std::cerr << "Error: Channels have different sizes!" << std::endl;
-		std::cout << leftChannel.size() << " " << rightChannel.size() << std::endl;
-	}
-
-	float* interleavedBuffer = new float[leftChannel.size() * 2];
-
-	for (size_t i = 0; i < leftChannel.size(); ++i)
-	{
-		interleavedBuffer[2 * i] = leftChannel[i];
-		interleavedBuffer[2 * i + 1] = rightChannel[i];
-	}
-
-	return interleavedBuffer;
-}
-
-float* load_wav(const char* filename, sf_count_t& frames) {
-
-	SF_INFO sfinfo;
-
-	SNDFILE* sndfile = sf_open(filename, SFM_READ, &sfinfo);
-	if (sndfile == NULL) {
-		std::cerr << "Failed to open file: " << filename << std::endl;
-		return nullptr;
-	}
-
-	frames = sfinfo.frames;
-
-	float* buffer = (float*)malloc(frames * 2 * sizeof(float));
-	if (buffer == NULL) {
-		std::cerr << "Failed to allocate memory for the audio buffer." << std::endl;
-		sf_close(sndfile);
-		return nullptr;
-	}
-
-	sf_count_t num_samples = sf_readf_float(sndfile, buffer, frames);
-	if (num_samples != frames) {
-		std::cerr << "Did not read expected amount of frames." << std::endl;
-		free(buffer);
-		sf_close(sndfile);
-		return nullptr;
-	}
-
-	sf_close(sndfile);
-	return buffer;
-}
-
 void AudioStream::file_path_getter(std::string folder_path, bool is_rain, bool is_night)
 {
 	for (const auto& entry : fs::directory_iterator(folder_path))
@@ -141,9 +31,9 @@ void AudioStream::file_path_getter(std::string folder_path, bool is_rain, bool i
 
 void AudioStream::gatherNoiseSamples(float* buffer)
 {
-	size_t chunkSamples = BUFFER_SIZE * 2;
+	size_t chunkSamples = BUFFER_SIZE * CHANNEL_COUNT;
 
-	size_t numberOfChunks = NOISE_TOTAL / BUFFER_SIZE;
+	size_t numberOfChunks = NOISE_TOTAL / chunkSamples;
 
 	for (size_t i = 0; i < numberOfChunks; ++i)
 	{
@@ -159,16 +49,13 @@ void AudioStream::gatherNoiseTracks(size_t framesPerBuffer)
 {
 	for (const auto& buffer : noiseArray)
 	{
-		auto tracks = bufferToTracks(buffer, CHANNEL_COUNT, framesPerBuffer);
-
-		noise_tracks.push_back(tracks);
+		noise_tracks.push_back(bored.copyBufferToVector(buffer, framesPerBuffer));
 	}
 }
 
 void AudioStream::preload_noise_tracks(std::string map_choose, bool is_rain, bool is_night)
 {
-	// change the folder path to your folder path
-	std::string folder_path = "..\\..\\Desktop\\tarkov_sounds\\" + map_choose;
+	std::string folder_path = "C:\\Users\\kemerios\\Desktop\\tarkov_sounds\\" + map_choose; 
 
 	if (map_choose == "factory")
 	{
@@ -206,7 +93,7 @@ void AudioStream::preload_noise_tracks(std::string map_choose, bool is_rain, boo
 	{
 		std::cout << filename << std::endl;
 
-		stereoBuffer = load_wav(filename.c_str(), frames);
+		stereoBuffer = bored.load_wav(filename.c_str(), frames);
 
 		gatherNoiseSamples(stereoBuffer);
 
@@ -222,12 +109,12 @@ void AudioStream::AudioProcessing(float& angle, std::map<std::string, bool>& tar
 {
 	Pa_ReadStream(stream_, in_buffer, BUFFER_SIZE);
 
-	NoiseReduction reduction(noiseReductionSettings, SAMPLE_RATE);
-
 	if (in_buffer != NULL)
 	{
 		if (reduction_started)
 		{
+			static NoiseReduction reduction(noiseReductionSettings, SAMPLE_RATE);
+
 			if (preload == false)
 			{
 				for (const auto& map : tarkov_maps)
@@ -247,65 +134,34 @@ void AudioStream::AudioProcessing(float& angle, std::map<std::string, bool>& tar
 
 			if (mapChoosen)
 			{
-				audio_tracks = bufferToTracks(in_buffer, CHANNEL_COUNT, BUFFER_SIZE);
-				audio_cache.insert(audio_cache.end(), audio_tracks.begin(), audio_tracks.end());
+				audio_tracks = bored.copyBufferToVector(in_buffer, BUFFER_SIZE).Buffer();
+				audio_cache = audio_tracks;
 
 				for (auto& tracksVector : noise_cache)
 				{
-					outputTracks.clear();
-					audio_proc_cache.clear();
+					InputTrack audio_obj(audio_cache);
 
-					for (auto& tracksInputTrack : tracksVector)
-					{
-						reduction.ProfileNoise(tracksInputTrack);
-					}
+					reduction.ProfileNoise(tracksVector);
 
-					for (auto& audio_track : audio_cache)
-					{
-						OutputTrack outputTrack;
-						reduction.ReduceNoise(audio_track, outputTrack);
+					OutputTrack outputTrack;
+					reduction.ReduceNoise(audio_obj, outputTrack);
 
-						outputTracks.push_back(outputTrack);
-					}
+					audio_proc_cache = outputTrack.Buffer();
 
-					audio_cache.clear();
+					audio_cache = audio_tracks;
 
-					for (auto& proc : outputTracks)
-					{
-						audio_proc_cache.push_back(InputTrack(proc.Buffer()));
-					}
-
-					audio_cache.insert(audio_cache.end(), audio_proc_cache.begin(), audio_proc_cache.end());
+					audio_obj.Clear();
 				}
 
-				const std::vector<float>& leftChannel = audio_cache[0].Buffer();
-				const std::vector<float>& rightChannel = audio_cache[1].Buffer();
+				//angle = bored.calculateNeedleAngle(leftChannel, rightChannel);
 
-				//float* interleavedBuffer = interleaveChannels(leftChannel, rightChannel);
+				auto final_buffer = audio_proc_cache;
 
-				/*std::vector<float> interleaved_vector = std::vector<float>(interleavedBuffer, interleavedBuffer + leftChannel.size());
-
-				auto stft_result = calc.STFT(interleaved_vector, 2048, 1024);
-
-				for (size_t i = 0; i < stft_result.size(); ++i) {
-					float max_db = -std::numeric_limits<float>::infinity();
-					for (size_t k = 0; k < stft_result[i].size(); ++k) {
-						if (stft_result[i][k].real() > max_db) {
-							max_db = stft_result[i][k].real();
-						}
-					}
-
-					if (max_db > 15.f)
-					{
-						angle = calculateNeedleAngle(leftChannel, rightChannel);
-					}
-				}*/
-
-				angle = calculateNeedleAngle(leftChannel, rightChannel);
+				//bored.zeroOutLowPowerChunks(final_buffer, 512);
 
 				for (size_t i = 0; i < BUFFER_SIZE; i++) {
-					out_buffer[i * 2] = leftChannel[i];
-					out_buffer[i * 2 + 1] = rightChannel[i];
+					out_buffer[i * 2] = final_buffer[i * CHANNEL_COUNT];
+					out_buffer[i * 2 + 1] = final_buffer[i * CHANNEL_COUNT + 1];
 				}
 
 				Pa_WriteStream(stream_, out_buffer, BUFFER_SIZE);
@@ -316,13 +172,12 @@ void AudioStream::AudioProcessing(float& angle, std::map<std::string, bool>& tar
 				audio_tracks.clear();
 				audio_cache.clear();
 				audio_proc_cache.clear();
-				outputTracks.clear();
 			}
 		}
 		else
 		{
 
-			angle = calculateNeedleAngle(leftChannel, rightChannel);
+			//angle = calculateNeedleAngle(leftChannel, rightChannel);
 
 			for (size_t i = 0; i < BUFFER_SIZE; i++) {
 				out_buffer[i * 2] = in_buffer[i * 2];
@@ -425,7 +280,7 @@ void AudioStream::findInputDeviceIndex()
 
 		if (inputDeviceInfo && std::string(Pa_GetDeviceInfo(i)->name) == std::string(inputDeviceInfo->name) && inputDeviceInfo->maxInputChannels > 0)
 		{
-			addHashesBelow("Input Device found: " + std::string(inputDeviceInfo->name));
+			bored.addHashesBelow("Input Device found: " + std::string(inputDeviceInfo->name));
 			std::cout << "Input Device found: " << inputDeviceInfo->name << std::endl;
 
 			std::cout << "" << std::endl;
@@ -435,7 +290,7 @@ void AudioStream::findInputDeviceIndex()
 			std::cout << "Device input channels: " << inputDeviceInfo->maxInputChannels << std::endl;
 			std::cout << "Device output channels: " << inputDeviceInfo->maxOutputChannels << std::endl;
 			std::cout << "API: " << Pa_GetHostApiInfo(inputDeviceInfo->hostApi)->name << std::endl;
-			addHashesBelow("Input Device found: " + std::string(inputDeviceInfo->name));
+			bored.addHashesBelow("Input Device found: " + std::string(inputDeviceInfo->name));
 
 			inputParameters.device = i;
 			inputParameters.channelCount = 2;
@@ -448,7 +303,7 @@ void AudioStream::findInputDeviceIndex()
 		{
 			outputDeviceInfo = Pa_GetDeviceInfo(i);
 
-			addHashesBelow("Input Device Found: " + std::string(outputDeviceInfo->name));
+			bored.addHashesBelow("Input Device Found: " + std::string(outputDeviceInfo->name));
 			std::cout << "Input Device Found: " << outputDeviceInfo->name << std::endl;
 
 			std::cout << "" << std::endl;
@@ -458,7 +313,7 @@ void AudioStream::findInputDeviceIndex()
 			std::cout << "Device Input Channels: " << outputDeviceInfo->maxInputChannels << std::endl;
 			std::cout << "Device Output Channels: " << outputDeviceInfo->maxOutputChannels << std::endl;
 			std::cout << "API: " << Pa_GetHostApiInfo(outputDeviceInfo->hostApi)->name << std::endl;
-			addHashesBelow("Input Device Found: " + std::string(outputDeviceInfo->name));
+			bored.addHashesBelow("Input Device Found: " + std::string(outputDeviceInfo->name));
 
 			outputParameters.device = i;
 			outputParameters.channelCount = 2;
