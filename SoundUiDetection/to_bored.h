@@ -35,7 +35,15 @@ public:
 		float leftLevel = calculateAverage(leftChannel);
 		float rightLevel = calculateAverage(rightChannel);
 
+		float sumLevels = leftLevel + rightLevel;
+
+		if (sumLevels == 0.0f)
+		{
+			return 0.0f;
+		}
+
 		float normalizedDifference = (rightLevel - leftLevel) / (leftLevel + rightLevel);
+
 		return normalizedDifference * 90.0f;
 	}
 
@@ -98,6 +106,25 @@ public:
 		}
 
 		return interleavedBuffer;
+	}
+
+	void splitInterleavedStereo(const std::vector<float>& interleaved, std::vector<float>& leftChannel, std::vector<float>& rightChannel) {
+		size_t totalSamples = interleaved.size();
+		if (totalSamples % 2 != 0) {
+			throw std::invalid_argument("Interleaved vector must have an even number of elements.");
+		}
+
+		size_t numSamplesPerChannel = totalSamples / 2;
+
+		// Resize the output vectors to hold the samples for each channel
+		leftChannel.resize(numSamplesPerChannel);
+		rightChannel.resize(numSamplesPerChannel);
+
+		// Split the interleaved vector into left and right channels
+		for (size_t i = 0; i < numSamplesPerChannel; ++i) {
+			leftChannel[i] = interleaved[2 * i];      // Left channel sample
+			rightChannel[i] = interleaved[2 * i + 1]; // Right channel sample
+		}
 	}
 
 	/// <summary>
@@ -186,10 +213,6 @@ public:
 			size_t startIdx = chunk * chunkSize;
 			size_t endIdx = startIdx + chunkSize;
 
-			std::cout << startIdx << std::endl;
-			std::cout << endIdx << std::endl;
-			std::cout << "===========" << std::endl;
-
 			float maxdB = calculateMaxdB(buffer, startIdx, endIdx);
 
 			if (maxdB < threshold_dB) {
@@ -198,24 +221,78 @@ public:
 		}
 	}
 
-	void zeroOutLowPowerChunks(std::vector<float>& buffer, size_t chunkSize) {
-		const float threshold_dB = -23.f;
-		const float threshold_linear = std::pow(10.0f, threshold_dB / 20.0f);
+	float calculateRMS(const std::vector<float>& buffer) {
+		float sum_of_squares = std::accumulate(buffer.begin(), buffer.end(), 0.0f,
+			[](float sum, float value) { return sum + value * value; });
+		return std::sqrt(sum_of_squares / buffer.size());
+	}
 
-		for (size_t i = 0; i < buffer.size(); i += chunkSize) {
-			float sumOfSquares = 0.0f;
-
-			// Compute the sum of squares for the current chunk
-			for (size_t j = i; j < i + chunkSize && j < buffer.size(); ++j) {
-				sumOfSquares += buffer[j] * buffer[j];
-			}
-
-			float rms = std::sqrt(sumOfSquares / chunkSize);
-
-			// Zero out the chunk if RMS is below the threshold
-			if (rms < threshold_linear) {
-				std::fill(buffer.begin() + i, buffer.begin() + std::min(i + chunkSize, buffer.size()), 0.0f);
-			}
+	void scaleBuffer(std::vector<float>& buffer, float scaling_factor) {
+		for (auto& sample : buffer) {
+			sample *= scaling_factor;
 		}
 	}
+
+	void zeroOutLowPowerChunks(std::vector<float>& buffer, size_t chunkSize) {
+		const float threshold_dB = -55.f;
+		const float threshold_linear = std::pow(10.0f, threshold_dB / 20.0f);
+
+		size_t overlap = chunkSize / 2;
+		size_t start = 0;
+
+		while (start + chunkSize <= buffer.size()) {
+			std::vector<float> chunk(buffer.begin() + start, buffer.begin() + start + chunkSize);
+
+			float rms = calculateRMS(chunk);
+
+			if (rms < threshold_linear) {
+				std::fill(buffer.begin() + start, buffer.begin() + std::min(start + chunkSize, buffer.size()), 0.0f);
+			}
+
+			start += overlap;
+		}
+	}
+};
+
+class HighPassFilter {
+public:
+	HighPassFilter(float cutoffFrequency, float sampleRate)
+	{
+		float RC = 1.0f / (2.0f * M_PI * cutoffFrequency);
+		dt = 1.0f / sampleRate;
+		alpha = RC / (RC + dt);
+
+		prevInputL = 0.0f;
+		prevOutputL = 0.0f;
+		prevInputR = 0.0f;
+		prevOutputR = 0.0f;
+	}
+
+	void processBuffer(std::vector<float>& buffer)
+	{
+		for (size_t i = 0; i < buffer.size(); i += 2)
+		{
+			// Process left channel
+			float inputL = buffer[i];
+			float outputL = alpha * (prevOutputL + inputL - prevInputL);
+			prevInputL = inputL;
+			prevOutputL = outputL;
+			buffer[i] = outputL;
+
+			// Process right channel
+			float inputR = buffer[i + 1];
+			float outputR = alpha * (prevOutputR + inputR - prevInputR);
+			prevInputR = inputR;
+			prevOutputR = outputR;
+			buffer[i + 1] = outputR;
+		}
+	}
+
+private:
+	float alpha;
+	float dt;
+	float prevInputL;
+	float prevOutputL;
+	float prevInputR;
+	float prevOutputR;
 };

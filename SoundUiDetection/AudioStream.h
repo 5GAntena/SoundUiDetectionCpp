@@ -1,5 +1,7 @@
 #pragma once
 
+#define _USE_MATH_DEFINES
+
 #include <portaudio.h>
 #include <iostream>
 #include <string>
@@ -8,6 +10,8 @@
 #include <fstream>
 #include <sndfile.h>
 #include <map>
+#include <cmath>
+#include <numeric>
 
 #include "InputTrack.h"
 #include "OutputTrack.h"
@@ -50,7 +54,7 @@ private:
 	size_t BUFFER_SIZE = 2048;
 	int CHANNEL_COUNT = 2;
 
-	size_t NOISE_TOTAL = CHANNEL_COUNT * BUFFER_SIZE;
+	size_t NOISE_TOTAL = CHANNEL_COUNT * BUFFER_SIZE * 2;
 
 	float* in_buffer = (float*)malloc(BUFFER_SIZE * 2 * sizeof(float));
 	float* out_buffer = (float*)malloc(BUFFER_SIZE * 2 * sizeof(float));

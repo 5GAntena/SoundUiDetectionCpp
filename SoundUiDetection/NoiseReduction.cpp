@@ -84,7 +84,7 @@ const struct WindowTypesInfo {
 
 enum {
     DEFAULT_WINDOW_SIZE_CHOICE = 8, // corresponds to 2048
-    DEFAULT_STEPS_PER_WINDOW_CHOICE = 4 // corresponds to 4, minimum for WT_HANN_HANN
+    DEFAULT_STEPS_PER_WINDOW_CHOICE = 1 // corresponds to 4, minimum for WT_HANN_HANN
 };
 
 enum NoiseReductionChoice {
@@ -562,8 +562,8 @@ void NoiseReductionWorker::GatherStatistics(Statistics& statistics)
 
     {
         // NEW statistics
-        const float* pPower = &mQueue[0]->mSpectrums[0];
-        float* pSum = &statistics.mSums[0];
+        auto pPower = &mQueue[0]->mSpectrums[0];
+        auto pSum = &statistics.mSums[0];
         for (size_t jj = 0; jj < mSpectrumSize; ++jj) {
             *pSum++ += *pPower++;
         }
@@ -578,8 +578,8 @@ void NoiseReductionWorker::GatherStatistics(Statistics& statistics)
 
     {
         // old statistics
-        const float* pPower = &mQueue[0]->mSpectrums[0];
-        float* pThreshold = &statistics.mNoiseThreshold[0];
+        auto pPower = &mQueue[0]->mSpectrums[0];
+        auto pThreshold = &statistics.mNoiseThreshold[0];
         for (int jj = 0; jj < mSpectrumSize; ++jj) {
             float min = *pPower++;
             for (unsigned ii = 1; ii < finish; ++ii)

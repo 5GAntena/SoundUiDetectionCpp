@@ -108,7 +108,7 @@ void AudioStream::preload_noise_tracks(std::string map_choose, bool is_rain, boo
 void AudioStream::AudioProcessing(float& angle, std::map<std::string, bool>& tarkov_maps, bool& reduction_started)
 {
 	Pa_ReadStream(stream_, in_buffer, BUFFER_SIZE);
-
+	
 	if (in_buffer != NULL)
 	{
 		if (reduction_started)
@@ -135,11 +135,28 @@ void AudioStream::AudioProcessing(float& angle, std::map<std::string, bool>& tar
 			if (mapChoosen)
 			{
 				audio_tracks = bored.copyBufferToVector(in_buffer, BUFFER_SIZE).Buffer();
+
+				//static HighPassFilter hpFilter(450.0f, SAMPLE_RATE);
+
+				//hpFilter.processBuffer(audio_tracks);
+
 				audio_cache = audio_tracks;
 
 				for (auto& tracksVector : noise_cache)
 				{
+					float audio_rms = bored.calculateRMS(audio_tracks);
+
+					FloatVector tempNoise = tracksVector.Buffer();
+
+					float noise_rms = bored.calculateRMS(tempNoise);
+
+					float scaling_factor = audio_rms / noise_rms;
+
+					bored.scaleBuffer(tempNoise, scaling_factor);
+
 					InputTrack audio_obj(audio_cache);
+
+					auto final_noise = InputTrack(tempNoise);
 
 					reduction.ProfileNoise(tracksVector);
 
@@ -153,15 +170,23 @@ void AudioStream::AudioProcessing(float& angle, std::map<std::string, bool>& tar
 					audio_obj.Clear();
 				}
 
-				//angle = bored.calculateNeedleAngle(leftChannel, rightChannel);
+				bored.zeroOutLowPowerChunks(audio_proc_cache, 512);
 
-				auto final_buffer = audio_proc_cache;
+				FloatVector leftChannel;
+				FloatVector rightChannel;
 
-				//bored.zeroOutLowPowerChunks(final_buffer, 512);
+				bored.splitInterleavedStereo(audio_proc_cache, leftChannel, rightChannel);
+
+				auto angle_calculation = bored.calculateNeedleAngle(leftChannel, rightChannel);
+
+				if (!angle_calculation == 0.0f)
+				{
+					angle = angle_calculation;
+				}
 
 				for (size_t i = 0; i < BUFFER_SIZE; i++) {
-					out_buffer[i * 2] = final_buffer[i * CHANNEL_COUNT];
-					out_buffer[i * 2 + 1] = final_buffer[i * CHANNEL_COUNT + 1];
+					out_buffer[i * CHANNEL_COUNT] = audio_proc_cache[i * CHANNEL_COUNT];
+					out_buffer[i * CHANNEL_COUNT + 1] = audio_proc_cache[i * CHANNEL_COUNT + 1];
 				}
 
 				Pa_WriteStream(stream_, out_buffer, BUFFER_SIZE);
@@ -176,12 +201,17 @@ void AudioStream::AudioProcessing(float& angle, std::map<std::string, bool>& tar
 		}
 		else
 		{
+			audio_tracks = bored.copyBufferToVector(in_buffer, BUFFER_SIZE).Buffer();
+
+			static HighPassFilter hpFilter(500.0f, SAMPLE_RATE);
+
+			hpFilter.processBuffer(audio_tracks);
 
 			//angle = calculateNeedleAngle(leftChannel, rightChannel);
 
 			for (size_t i = 0; i < BUFFER_SIZE; i++) {
-				out_buffer[i * 2] = in_buffer[i * 2];
-				out_buffer[i * 2 + 1] = in_buffer[i * 2 + 1];
+				out_buffer[i * 2] = audio_tracks[i * 2];
+				out_buffer[i * 2 + 1] = audio_tracks[i * 2 + 1];
 			}
 
 			Pa_WriteStream(stream_, out_buffer, BUFFER_SIZE);

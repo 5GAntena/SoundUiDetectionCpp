@@ -113,6 +113,9 @@ void SoundWindow::drawNeedle() {
     float centerY = p.y + win_size.y * 0.5f;
 
     float radians = noiceAngle * M_PI / 180.0f;
+
+    ImGui::LabelText("degrees", std::to_string(noiceAngle).c_str());
+
     float needleX = centerX + needleLength * sin(radians);
     float needleY = centerY - needleLength * cos(radians);
 
