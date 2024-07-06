@@ -22,9 +22,10 @@
 class AudioStream
 {
 public:
-	AudioStream(const NoiseReduction::Settings settings) :
-		noiseReductionSettings(settings)
+	AudioStream(NoiseReduction* reductionObj, float sample_rate) 
+		: reductionObj(reductionObj), SAMPLE_RATE(sample_rate)
 	{
+
 	}
 
 	~AudioStream()
@@ -50,7 +51,7 @@ public:
 	void findInputDeviceIndex();
 
 private:
-	double SAMPLE_RATE = 44100;
+	float SAMPLE_RATE;
 	size_t BUFFER_SIZE = 2048;
 	int CHANNEL_COUNT = 2;
 
@@ -85,7 +86,7 @@ private:
 	void preload_noise_tracks(std::string map_choose, bool is_rain, bool is_night);
 	void file_path_getter(std::string map_choose, bool is_rain, bool is_night);
 
+	NoiseReduction* reductionObj;
 	PaStream* stream_;
-	NoiseReduction::Settings noiseReductionSettings;
 	BoringFunc bored;
 };

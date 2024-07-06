@@ -113,8 +113,6 @@ void AudioStream::AudioProcessing(float& angle, std::map<std::string, bool>& tar
 	{
 		if (reduction_started)
 		{
-			static NoiseReduction reduction(noiseReductionSettings, SAMPLE_RATE);
-
 			if (preload == false)
 			{
 				for (const auto& map : tarkov_maps)
@@ -158,10 +156,10 @@ void AudioStream::AudioProcessing(float& angle, std::map<std::string, bool>& tar
 
 					auto final_noise = InputTrack(tempNoise);
 
-					reduction.ProfileNoise(tracksVector);
+					reductionObj->ProfileNoise(tracksVector);
 
 					OutputTrack outputTrack;
-					reduction.ReduceNoise(audio_obj, outputTrack);
+					reductionObj->ReduceNoise(audio_obj, outputTrack);
 
 					audio_proc_cache = outputTrack.Buffer();
 

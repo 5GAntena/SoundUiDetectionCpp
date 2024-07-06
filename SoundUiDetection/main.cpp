@@ -6,8 +6,8 @@
 int main(int argc, char** argv)
 {
 	SoundWindow* uiWindow = nullptr;
-
 	AudioStream* audioStream = nullptr;
+	NoiseReduction* reductionObj = nullptr;
 
 	uiWindow = new SoundWindow();
 
@@ -21,9 +21,11 @@ int main(int argc, char** argv)
 			settings.mFreqSmoothingBands = uiWindow->mFreqSmoothingBands;
 			settings.mNoiseGain = uiWindow->mNoiseGain;
 
+			reductionObj = new NoiseReduction(settings, 44100);
+
 			std::cout << "Settings imported" << std::endl;
 
-			audioStream = new AudioStream(settings);
+			audioStream = new AudioStream(reductionObj, 44100);
 
 			if (!audioStream->initStreamObj() || !audioStream->openStream() || !audioStream->startStream())
 			{
@@ -37,7 +39,10 @@ int main(int argc, char** argv)
 
 		if (uiWindow->reduction_reseted)
 		{
-			audioStream->~AudioStream();
+			reductionObj->~NoiseReduction();
+			reductionObj = nullptr;
+
+;			audioStream->~AudioStream();
 			audioStream = nullptr;
 
 			for (auto& map : uiWindow->tarkov_maps)
@@ -50,8 +55,8 @@ int main(int argc, char** argv)
 			uiWindow->mNoiseGain = 25.f;
 			uiWindow->noiceAngle = 0.f;
 
-			uiWindow->reduction_started = false;
 			uiWindow->reduction_reseted = false;
+			uiWindow->redution_button_start = true;
 		}
 
 		uiWindow->Run();
