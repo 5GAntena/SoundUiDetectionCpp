@@ -64,14 +64,14 @@ public:
         { "night", false }
     };
 
-    float mNewSensitivity = 6.f;
-    float mFreqSmoothingBands = 0.0;
-    float mNoiseGain = 25.f;
-    float noiceAngle = 0.f;
+    float mNewSensitivity = 6.0f;
+    float mFreqSmoothingBands = 6.0f;
+    float mNoiseGain = 10.f;
+    float noiceAngle = 0.0f;
 
     bool reduction_started = false;
     bool reduction_reseted = false;
-    bool redution_button_start = true;
+    bool redution_button_start = false;
 
 private:
 

@@ -50,10 +50,10 @@ int main(int argc, char** argv)
 				map.second = false;
 			}
 
-			uiWindow->mNewSensitivity = 6.f;
-			uiWindow->mFreqSmoothingBands = 0.f;
-			uiWindow->mNoiseGain = 25.f;
-			uiWindow->noiceAngle = 0.f;
+			uiWindow->mNewSensitivity = 6.0f;
+			uiWindow->mFreqSmoothingBands = 6.0f;
+			uiWindow->mNoiseGain = 10.f;
+			uiWindow->noiceAngle = 0.0f;
 
 			uiWindow->reduction_reseted = false;
 			uiWindow->redution_button_start = true;

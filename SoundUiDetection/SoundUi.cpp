@@ -17,6 +17,7 @@ void SoundWindow::createAppOptionsWindow(int display_w)
             {
                 std::cout << "Noise Reduction Started" << std::endl;
 
+                redution_button_start = true;
                 reduction_started = true;
                 reduction_reseted = false;
             }
