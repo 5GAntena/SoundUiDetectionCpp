@@ -173,51 +173,45 @@ public:
 		return InputTrack(outputVector);
 	}
 
-
-	/// <summary>
-	/// This one is to be used with the one bellow processBufferWithSilence function
-	/// basically takes a chunk (256, 512 etc) from a buffer of some size (2048 etc)
-	/// and get the max signal db of that chunk and returns it 
-	/// </summary>
-	/// <param name="buffer"></param>
-	/// <param name="start"></param>
-	/// <param name="end"></param>
-	/// <returns></returns>
-
-	float calculateMaxdB(const std::vector<float>& buffer, size_t start, size_t end) {
-		if (buffer.empty() || start >= end) {
+	float calculateChunkMaxDB(const std::vector<float>& chunk) {
+		if (chunk.empty()) {
 			return -std::numeric_limits<float>::infinity();
 		}
 
-		float maxAmplitude = 0.0f;
-		for (size_t i = start; i < end && i < buffer.size(); ++i) {
-			float absValue = std::abs(buffer[i]);
-			if (absValue > maxAmplitude) {
-				maxAmplitude = absValue;
-			}
-		}
+		float peakAmplitude = *std::max_element(chunk.begin(), chunk.end(),
+			[](float a, float b) { return std::fabs(a) < std::fabs(b); });
 
-		if (maxAmplitude <= 0.0f) {
-			return -std::numeric_limits<float>::infinity();
-		}
+		float maxDB = 20.0f * std::log10(std::fabs(peakAmplitude));
 
-		float maxdB = 20.0f * std::log10(maxAmplitude);
-
-		return maxdB;
+		return maxDB;
 	}
 
-	void processBufferWithSilence(std::vector<float>& buffer, size_t chunkSize, float threshold_dB) {
-		size_t numChunks = buffer.size() / chunkSize;
+	void processBuffer(std::vector<float>& buffer, size_t chunkSize) {
+		if (buffer.empty() || chunkSize == 0) {
+			return;
+		}
 
-		for (size_t chunk = 0; chunk < numChunks; ++chunk) {
-			size_t startIdx = chunk * chunkSize;
-			size_t endIdx = startIdx + chunkSize;
+		const float silenceThresholdDB = -46.0f;
+		const float silenceThresholdLinear = std::pow(10.0f, silenceThresholdDB / 20.0f);
 
-			float maxdB = calculateMaxdB(buffer, startIdx, endIdx);
+		size_t numChunks = (buffer.size() + chunkSize - 1) / chunkSize;
+		std::vector<float> maxDBs(numChunks);
 
-			if (maxdB < threshold_dB) {
-				std::fill(buffer.begin() + startIdx, buffer.begin() + endIdx, 0.0f);
-			}
+		std::for_each(std::execution::par, maxDBs.begin(), maxDBs.end(), [&](float& chunkMaxDB) {
+			size_t chunkIndex = &chunkMaxDB - maxDBs.data();
+			size_t start = chunkIndex * chunkSize;
+
+			std::vector<float> chunk(buffer.begin() + start, buffer.begin() + std::min(start + chunkSize, buffer.size()));
+
+			chunkMaxDB = calculateChunkMaxDB(chunk);
+			});
+
+		float meanMaxDB = std::accumulate(maxDBs.begin(), maxDBs.end(), 0.0f) / maxDBs.size();
+
+		if (meanMaxDB < silenceThresholdDB) {
+			std::for_each(std::execution::par, buffer.begin(), buffer.end(), [](float& sample) {
+				sample = 0.0f;
+				});
 		}
 	}
 

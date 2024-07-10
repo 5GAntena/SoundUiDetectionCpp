@@ -68,6 +68,12 @@ void SoundWindow::createMapOptionsWindow(int display_w)
     ImGui::SetCursorPos(ImVec2(x_coords[2], y_coords[0]));
     ImGui::Checkbox("residential", &tarkov_maps["residential"]);
 
+    if (tarkov_maps["factory"])
+    {
+        ImGui::SetCursorPos(ImVec2(x_coords[0], y_coords[1]));
+        ImGui::Checkbox("Bypass Audio", &tarkov_maps["Bypass"]);
+    }
+
     if (tarkov_maps["outdoor"])
     {
         ImGui::SetCursorPos(ImVec2(x_coords[1], y_coords[1]));
@@ -75,6 +81,9 @@ void SoundWindow::createMapOptionsWindow(int display_w)
 
         ImGui::SetCursorPos(ImVec2(x_coords[1], y_coords[2]));
         ImGui::Checkbox("night", &tarkov_maps["night"]);
+
+        ImGui::SetCursorPos(ImVec2(x_coords[1], y_coords[3]));
+        ImGui::Checkbox("Bypass Audio", &tarkov_maps["Bypass"]);
     }
 
     if (tarkov_maps["residential"])
@@ -84,6 +93,27 @@ void SoundWindow::createMapOptionsWindow(int display_w)
 
         ImGui::SetCursorPos(ImVec2(x_coords[2], y_coords[2]));
         ImGui::Checkbox("night", &tarkov_maps["night"]);
+
+        ImGui::SetCursorPos(ImVec2(x_coords[2], y_coords[3]));
+        ImGui::Checkbox("Bypass Audio", &tarkov_maps["Bypass"]);
+    }
+
+    for (const auto& map : tarkov_maps)
+    {
+        if (map.first == "Bypass" && map.second == true)
+        {
+
+            reduction_started = false;
+
+            break;
+        }
+
+        if (map.first == "Bypass" && map.second == false)
+        {
+            reduction_started = true;
+
+            break;
+        }
     }
 
     ImGui::End();

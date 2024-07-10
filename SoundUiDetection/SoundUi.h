@@ -61,7 +61,8 @@ public:
         { "outdoor", false },
         { "residential", false },
         { "rain", false },
-        { "night", false }
+        { "night", false },
+        { "Bypass", false }
     };
 
     float mNewSensitivity = 6.0f;

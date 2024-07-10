@@ -12,6 +12,7 @@
 #include <map>
 #include <cmath>
 #include <numeric>
+#include <execution>
 
 #include "InputTrack.h"
 #include "OutputTrack.h"

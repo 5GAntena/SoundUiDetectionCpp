@@ -168,7 +168,9 @@ void AudioStream::AudioProcessing(float& angle, std::map<std::string, bool>& tar
 					audio_obj.Clear();
 				}
 
-				bored.zeroOutLowPowerChunks(audio_proc_cache, 512);
+				//bored.zeroOutLowPowerChunks(audio_proc_cache, 512);
+
+				bored.processBuffer(audio_proc_cache, 16);
 
 				FloatVector leftChannel;
 				FloatVector rightChannel;
@@ -197,19 +199,16 @@ void AudioStream::AudioProcessing(float& angle, std::map<std::string, bool>& tar
 				audio_proc_cache.clear();
 			}
 		}
-		else
+
+		if (!reduction_started || tarkov_maps["Bypass"])
 		{
-			audio_tracks = bored.copyBufferToVector(in_buffer, BUFFER_SIZE).Buffer();
+			//static HighPassFilter hpFilter(500.0f, SAMPLE_RATE);
 
-			static HighPassFilter hpFilter(500.0f, SAMPLE_RATE);
-
-			hpFilter.processBuffer(audio_tracks);
-
-			//angle = calculateNeedleAngle(leftChannel, rightChannel);
+			//hpFilter.processBuffer(audio_tracks);
 
 			for (size_t i = 0; i < BUFFER_SIZE; i++) {
-				out_buffer[i * 2] = audio_tracks[i * 2];
-				out_buffer[i * 2 + 1] = audio_tracks[i * 2 + 1];
+				out_buffer[i * 2] = in_buffer[i * 2];
+				out_buffer[i * 2 + 1] = in_buffer[i * 2 + 1];
 			}
 
 			Pa_WriteStream(stream_, out_buffer, BUFFER_SIZE);

@@ -9,6 +9,8 @@ int main(int argc, char** argv)
 	AudioStream* audioStream = nullptr;
 	NoiseReduction* reductionObj = nullptr;
 
+	float SAMPLE_RATE = 44100;
+
 	uiWindow = new SoundWindow();
 
 	while (!glfwWindowShouldClose(uiWindow->window))
@@ -21,11 +23,11 @@ int main(int argc, char** argv)
 			settings.mFreqSmoothingBands = uiWindow->mFreqSmoothingBands;
 			settings.mNoiseGain = uiWindow->mNoiseGain;
 
-			reductionObj = new NoiseReduction(settings, 44100);
+			reductionObj = new NoiseReduction(settings, SAMPLE_RATE);
 
 			std::cout << "Settings imported" << std::endl;
 
-			audioStream = new AudioStream(reductionObj, 44100);
+			audioStream = new AudioStream(reductionObj, SAMPLE_RATE);
 
 			if (!audioStream->initStreamObj() || !audioStream->openStream() || !audioStream->startStream())
 			{
@@ -57,6 +59,8 @@ int main(int argc, char** argv)
 
 			uiWindow->reduction_reseted = false;
 			uiWindow->redution_button_start = true;
+
+			std::cout.flush();
 		}
 
 		uiWindow->Run();
