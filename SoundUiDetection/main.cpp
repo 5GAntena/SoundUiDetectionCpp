@@ -67,7 +67,7 @@ int main(int argc, char** argv)
 
 		if (audioStream != nullptr)
 		{
-			audioStream->AudioProcessing(uiWindow->noiceAngle, uiWindow->tarkov_maps, uiWindow->reduction_started);
+			audioStream->AudioProcessing(uiWindow->noiceAngle, uiWindow->mChunkSize, uiWindow->mSilenceThresholdDB, uiWindow->tarkov_maps, uiWindow->reduction_started);
 		}
 	}
 

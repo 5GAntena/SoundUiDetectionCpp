@@ -4,7 +4,7 @@ void SoundWindow::createAppOptionsWindow(int display_w)
 {
     ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
 
-    ImGui::SetNextWindowSize(ImVec2((float)display_w, 150.0f));
+    ImGui::SetNextWindowSize(ImVec2((float)display_w, 180.0f));
     ImGui::SetNextWindowPos(ImVec2(0.f, 450.0f));
 
     ImGui::Begin("App Options", nullptr, windowFlags);
@@ -43,6 +43,8 @@ void SoundWindow::createAppOptionsWindow(int display_w)
     ImGui::InputFloat("Sensitivity", &mNewSensitivity);
     ImGui::InputFloat("Smoothing Bands", &mFreqSmoothingBands);
     ImGui::InputFloat("Gain", &mNoiseGain);
+    ImGui::InputInt("Chunk", &mChunkSize);
+    ImGui::InputFloat("ThreshholdDB", &mSilenceThresholdDB);
 
     ImGui::End();
 }

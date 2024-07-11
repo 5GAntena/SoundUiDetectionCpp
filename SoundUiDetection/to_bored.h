@@ -186,13 +186,12 @@ public:
 		return maxDB;
 	}
 
-	void processBuffer(std::vector<float>& buffer, size_t chunkSize) {
+	void processBuffer(std::vector<float>& buffer, size_t chunkSize = 512, float silenceThresholdDB = -46.0f) {
 		if (buffer.empty() || chunkSize == 0) {
 			return;
 		}
 
-		const float silenceThresholdDB = -46.0f;
-		const float silenceThresholdLinear = std::pow(10.0f, silenceThresholdDB / 20.0f);
+		//const float silenceThresholdLinear = std::pow(10.0f, silenceThresholdDB / 20.0f);
 
 		size_t numChunks = (buffer.size() + chunkSize - 1) / chunkSize;
 		std::vector<float> maxDBs(numChunks);

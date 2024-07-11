@@ -47,7 +47,7 @@ public:
 
 	void closeStream();
 
-	void AudioProcessing(float &angle, std::map<std::string, bool>& tarkov_maps, bool& reduction_started);
+	void AudioProcessing(float& angle, int chunkSize, float silenceThresholdDB, std::map<std::string, bool>& tarkov_maps, bool& reduction_started);
 
 	void findInputDeviceIndex();
 

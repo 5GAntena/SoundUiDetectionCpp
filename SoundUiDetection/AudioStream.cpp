@@ -105,7 +105,7 @@ void AudioStream::preload_noise_tracks(std::string map_choose, bool is_rain, boo
 	}
 }
 
-void AudioStream::AudioProcessing(float& angle, std::map<std::string, bool>& tarkov_maps, bool& reduction_started)
+void AudioStream::AudioProcessing(float& angle, int chunkSize, float silenceThresholdDB, std::map<std::string, bool>& tarkov_maps, bool& reduction_started)
 {
 	Pa_ReadStream(stream_, in_buffer, BUFFER_SIZE);
 	
@@ -170,7 +170,7 @@ void AudioStream::AudioProcessing(float& angle, std::map<std::string, bool>& tar
 
 				//bored.zeroOutLowPowerChunks(audio_proc_cache, 512);
 
-				bored.processBuffer(audio_proc_cache, 16);
+				bored.processBuffer(audio_proc_cache, chunkSize, silenceThresholdDB);
 
 				FloatVector leftChannel;
 				FloatVector rightChannel;

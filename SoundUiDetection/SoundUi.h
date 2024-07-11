@@ -22,7 +22,7 @@ public:
         if (!glfwInit())
             throw std::runtime_error("Failed to initialize GLFW");
 
-        window = glfwCreateWindow(600, 600, "Needle", NULL, NULL);
+        window = glfwCreateWindow(600, 700, "Needle", NULL, NULL);
 
         glfwMakeContextCurrent(window);
         glfwSwapInterval(1);
@@ -69,6 +69,9 @@ public:
     float mFreqSmoothingBands = 6.0f;
     float mNoiseGain = 10.f;
     float noiceAngle = 0.0f;
+
+    int mChunkSize = 512;
+    float mSilenceThresholdDB = -46.0f;
 
     bool reduction_started = false;
     bool reduction_reseted = false;
