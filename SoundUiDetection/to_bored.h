@@ -9,45 +9,6 @@ public:
 	}
 
 	/// <summary>
-	/// to be used with calculateNeedleAndle find the angle of the sound in a stereo signal 90 degrees max 
-	/// </summary>
-	/// <param name="channel"></param>
-	/// <returns></returns>
-	float calculateAverage(const std::vector<float>& channel)
-	{
-		float sum = 0.0f;
-		for (float sample : channel)
-		{
-
-			sum += std::abs(sample);
-		}
-		return sum / channel.size();
-	}
-
-	float calculateNeedleAngle(const std::vector<float>& leftChannel, const std::vector<float>& rightChannel)
-	{
-
-		if (leftChannel.empty() || rightChannel.empty())
-		{
-			return 0.0f;
-		}
-
-		float leftLevel = calculateAverage(leftChannel);
-		float rightLevel = calculateAverage(rightChannel);
-
-		float sumLevels = leftLevel + rightLevel;
-
-		if (sumLevels == 0.0f)
-		{
-			return 0.0f;
-		}
-
-		float normalizedDifference = (rightLevel - leftLevel) / (leftLevel + rightLevel);
-
-		return normalizedDifference * 90.0f;
-	}
-
-	/// <summary>
 	/// To be used idividually or with the one func bellow bufferToTracks, does what it says, splits a interleaved buffer into 2 channels or more?
 	/// </summary>
 	/// <param name="in"></param>
@@ -218,6 +179,28 @@ public:
 		float sum_of_squares = std::accumulate(buffer.begin(), buffer.end(), 0.0f,
 			[](float sum, float value) { return sum + value * value; });
 		return std::sqrt(sum_of_squares / buffer.size());
+	}
+
+	float calculateNeedleAngle(const std::vector<float>& leftChannel, const std::vector<float>& rightChannel)
+	{
+		if (leftChannel.empty() || rightChannel.empty())
+		{
+			return 0.0f;
+		}
+
+		float leftRMS = calculateRMS(leftChannel);
+		float rightRMS = calculateRMS(rightChannel);
+
+		float sumRMS = leftRMS + rightRMS;
+
+		if (sumRMS == 0.0f)
+		{
+			return 0.0f;
+		}
+
+		float normalizedDifference = (rightRMS - leftRMS) / sumRMS;
+
+		return normalizedDifference * 90.0f;
 	}
 
 	void scaleBuffer(std::vector<float>& buffer, float scaling_factor) {
