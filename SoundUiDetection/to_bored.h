@@ -230,7 +230,8 @@ public:
 	}
 };
 
-class HighPassFilter {
+class HighPassFilter 
+{
 public:
 	HighPassFilter(float cutoffFrequency, float sampleRate)
 	{
@@ -271,4 +272,105 @@ private:
 	float prevOutputL;
 	float prevInputR;
 	float prevOutputR;
+};
+
+class LowPassFilter 
+{
+public:
+	LowPassFilter(float cutoffFrequency, float sampleRate) 
+	{
+		float RC = 1.0f / (2.0f * M_PI * cutoffFrequency);
+		dt = 1.0f / sampleRate;
+		alpha = dt / (RC + dt);
+
+		prevOutputL = 0.0f;
+		prevOutputR = 0.0f;
+	}
+
+	void processBuffer(std::vector<float>& buffer) 
+	{
+		for (size_t i = 0; i < buffer.size(); i += 2) 
+		{
+			// Process left channel
+			float inputL = buffer[i];
+			float outputL = alpha * inputL + (1.0f - alpha) * prevOutputL;
+			prevOutputL = outputL;
+			buffer[i] = outputL;
+
+			// Process right channel
+			float inputR = buffer[i + 1];
+			float outputR = alpha * inputR + (1.0f - alpha) * prevOutputR;
+			prevOutputR = outputR;
+			buffer[i + 1] = outputR;
+		}
+	}
+
+private:
+	float alpha;
+	float dt;
+	float prevOutputL;
+	float prevOutputR;
+};
+
+class BandPassFilter 
+{
+public:
+	BandPassFilter(float lowCutoffFrequency, float highCutoffFrequency, float sampleRate) 
+	{
+		float lowRC = 1.0f / (2.0f * M_PI * lowCutoffFrequency);
+		float highRC = 1.0f / (2.0f * M_PI * highCutoffFrequency);
+		dt = 1.0f / sampleRate;
+
+		alphaLow = dt / (lowRC + dt);
+		alphaHigh = highRC / (highRC + dt);
+
+		prevInputLowL = 0.0f;
+		prevOutputLowL = 0.0f;
+		prevInputLowR = 0.0f;
+		prevOutputLowR = 0.0f;
+
+		prevOutputHighL = 0.0f;
+		prevOutputHighR = 0.0f;
+	}
+
+	void processBuffer(std::vector<float>& buffer) 
+	{
+		for (size_t i = 0; i < buffer.size(); i += 2) 
+		{
+			float inputL = buffer[i];
+
+			float lowOutputL = alphaLow * inputL + (1.0f - alphaLow) * prevOutputLowL;
+			prevOutputLowL = lowOutputL;
+
+			float bandPassOutputL = alphaHigh * (prevOutputHighL + lowOutputL - prevInputLowL);
+			prevInputLowL = lowOutputL;
+			prevOutputHighL = bandPassOutputL;
+
+			buffer[i] = bandPassOutputL;
+
+			float inputR = buffer[i + 1];
+
+			float lowOutputR = alphaLow * inputR + (1.0f - alphaLow) * prevOutputLowR;
+			prevOutputLowR = lowOutputR;
+
+			float bandPassOutputR = alphaHigh * (prevOutputHighR + lowOutputR - prevInputLowR);
+			prevInputLowR = lowOutputR;
+			prevOutputHighR = bandPassOutputR;
+
+			buffer[i + 1] = bandPassOutputR;
+		}
+	}
+
+private:
+	float alphaLow;
+	float alphaHigh;
+	float dt;
+
+	float prevInputLowL;
+	float prevOutputLowL;
+	float prevInputLowR;
+	float prevOutputLowR;
+
+	float prevOutputHighL;
+	float prevOutputHighR;
 };
