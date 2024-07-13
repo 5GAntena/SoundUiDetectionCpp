@@ -2,6 +2,7 @@
 #include "AudioStream.h"
 #include "NoiseReduction.h"
 #include <iostream>
+#include <chrono>
 
 int main(int argc, char** argv)
 {

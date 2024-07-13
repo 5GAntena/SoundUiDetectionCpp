@@ -119,5 +119,13 @@
     <ClInclude Include="to_bored.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="gpuWrapper.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="gpuCalculations.cu">
+      <Filter>Source Files</Filter>
+    </CudaCompile>
   </ItemGroup>
 </Project>

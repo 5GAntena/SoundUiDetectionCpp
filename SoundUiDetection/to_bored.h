@@ -115,6 +115,7 @@ public:
 		}
 
 		sf_count_t num_samples = sf_readf_float(sndfile, buffer, frames);
+
 		if (num_samples != frames) {
 			std::cerr << "Did not read expected amount of frames." << std::endl;
 			free(buffer);
@@ -226,6 +227,30 @@ public:
 			}
 
 			start += overlap;
+		}
+	}
+
+	float mean(const std::vector<float>& data) {
+		float sum = 0;
+		for (float value : data) {
+			sum += value;
+		}
+		return sum / data.size();
+	}
+
+	float standardDeviation(const std::vector<float>& data, float mean) {
+		float sum = 0;
+		for (float value : data) {
+			sum += (value - mean) * (value - mean);
+		}
+		return std::sqrt(sum / data.size());
+	}
+
+	void normalize(std::vector<float>& data) {
+		float dataMean = mean(data);
+		float dataStdDev = standardDeviation(data, dataMean);
+		for (float& value : data) {
+			value = (value - dataMean) / dataStdDev;
 		}
 	}
 };

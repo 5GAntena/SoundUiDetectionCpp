@@ -701,6 +701,7 @@ void NoiseReductionWorker::ReduceNoise
 
         // First, the attack, which goes backward in time, which is,
         // toward higher indices in the queue.
+
         for (size_t jj = 0; jj < mSpectrumSize; ++jj) {
             for (unsigned ii = mCenter + 1; ii < mHistoryLen; ++ii) {
                 const float minimum =

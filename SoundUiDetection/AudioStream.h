@@ -13,10 +13,13 @@
 #include <cmath>
 #include <numeric>
 #include <execution>
+#include <chrono>
+#include <omp.h>
 
 #include "InputTrack.h"
 #include "OutputTrack.h"
 #include "NoiseReduction.h"
+#include "gpuWrapper.hpp"
 
 #include "to_bored.h"
 
@@ -56,7 +59,7 @@ private:
 	size_t BUFFER_SIZE = 2048;
 	int CHANNEL_COUNT = 2;
 
-	size_t NOISE_TOTAL = CHANNEL_COUNT * BUFFER_SIZE * 2;
+	size_t NOISE_TOTAL = CHANNEL_COUNT * BUFFER_SIZE * 5;
 
 	float* in_buffer = (float*)malloc(BUFFER_SIZE * 2 * sizeof(float));
 	float* out_buffer = (float*)malloc(BUFFER_SIZE * 2 * sizeof(float));
@@ -65,20 +68,20 @@ private:
 	PaStreamParameters outputParameters;
 
 	float* stereoBuffer;
+	FloatVector noiseVectorNormalized;
+	FloatVector audioVectorNormalized;
 	sf_count_t frames;
 	const char* filename;
 
 	std::vector<std::string> noise_paths;
-	std::vector<InputTrack> noise_tracks;
-	std::vector<InputTrack> noise_cache;
+	FloatVector noiseTrack;
 
 	std::vector<float*> noiseArray;
 	int noise_index = 0;
 	bool preload = false;
 
-	FloatVector audio_tracks;
-	FloatVector audio_cache;
-	FloatVector audio_proc_cache;
+	FloatVector audioTrack;
+	FloatVector audioFinalProcessed;
 
 	bool mapChoosen = false;
 

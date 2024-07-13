@@ -29,30 +29,6 @@ void AudioStream::file_path_getter(std::string folder_path, bool is_rain, bool i
 	}
 }
 
-void AudioStream::gatherNoiseSamples(float* buffer)
-{
-	size_t chunkSamples = BUFFER_SIZE * CHANNEL_COUNT;
-
-	size_t numberOfChunks = NOISE_TOTAL / chunkSamples;
-
-	for (size_t i = 0; i < numberOfChunks; ++i)
-	{
-		float* chunk = new float[chunkSamples];
-
-		std::copy(buffer + i * chunkSamples, buffer + (i + 1) * chunkSamples, chunk);
-		
-		noiseArray.push_back(chunk);
-	}
-}
-
-void AudioStream::gatherNoiseTracks(size_t framesPerBuffer)
-{
-	for (const auto& buffer : noiseArray)
-	{
-		noise_tracks.push_back(bored.copyBufferToVector(buffer, framesPerBuffer));
-	}
-}
-
 void AudioStream::preload_noise_tracks(std::string map_choose, bool is_rain, bool is_night)
 {
 	std::string folder_path = "C:\\Users\\kemerios\\Desktop\\tarkov_sounds\\" + map_choose; 
@@ -95,11 +71,11 @@ void AudioStream::preload_noise_tracks(std::string map_choose, bool is_rain, boo
 
 		stereoBuffer = bored.load_wav(filename.c_str(), frames);
 
-		gatherNoiseSamples(stereoBuffer);
+		noiseTrack = bored.copyBufferToVector(stereoBuffer, frames).Buffer();
 
-		gatherNoiseTracks(BUFFER_SIZE);
+		noiseVectorNormalized = noiseTrack;
 
-		noise_cache.insert(noise_cache.end(), noise_tracks.begin(), noise_tracks.end());
+		bored.normalize(noiseVectorNormalized);
 
 		free(stereoBuffer);
 	}
@@ -132,50 +108,60 @@ void AudioStream::AudioProcessing(float& angle, int chunkSize, float silenceThre
 
 			if (mapChoosen)
 			{
-				audio_tracks = bored.copyBufferToVector(in_buffer, BUFFER_SIZE).Buffer();
+				audioTrack = bored.copyBufferToVector(in_buffer, BUFFER_SIZE).Buffer();
+
+				audioVectorNormalized = audioTrack;
+
+				bored.normalize(audioVectorNormalized);
 
 				//static HighPassFilter hpFilter(450.0f, SAMPLE_RATE);
 
 				//hpFilter.processBuffer(audio_tracks);
 
-				audio_cache = audio_tracks;
+				// 2ms runtime for NOISE_TOTAL = CHANNEL_COUNT * BUFFER_SIZE * 2
 
-				for (auto& tracksVector : noise_cache)
-				{
-					float audio_rms = bored.calculateRMS(audio_tracks);
+				auto start = std::chrono::high_resolution_clock::now();
 
-					FloatVector tempNoise = tracksVector.Buffer();
+				auto correlation = correlationGpu(audioVectorNormalized, noiseVectorNormalized);
 
-					float noise_rms = bored.calculateRMS(tempNoise);
+				auto maxIt = std::max_element(correlation.begin(), correlation.end());
+				int bestMatchIndex = std::distance(correlation.begin(), maxIt);
 
-					float scaling_factor = audio_rms / noise_rms;
+				FloatVector bestMatchingNoiseSegment(noiseTrack.begin() + bestMatchIndex, noiseTrack.begin() + bestMatchIndex + audioVectorNormalized.size());
 
-					bored.scaleBuffer(tempNoise, scaling_factor);
+				float audio_rms = bored.calculateRMS(audioTrack);
 
-					InputTrack audio_obj(audio_cache);
+				float noise_rms = bored.calculateRMS(bestMatchingNoiseSegment);
 
-					auto final_noise = InputTrack(tempNoise);
+				float scaling_factor = audio_rms / noise_rms;
 
-					reductionObj->ProfileNoise(tracksVector);
+				bored.scaleBuffer(bestMatchingNoiseSegment, scaling_factor);
 
-					OutputTrack outputTrack;
-					reductionObj->ReduceNoise(audio_obj, outputTrack);
+				auto audioSegmentToTrack = InputTrack(audioTrack);
+				auto noiseSegmentToTrack = InputTrack(bestMatchingNoiseSegment);
 
-					audio_proc_cache = outputTrack.Buffer();
+				reductionObj->ProfileNoise(noiseSegmentToTrack);
 
-					audio_cache = audio_tracks;
+				OutputTrack outputTrack;
 
-					audio_obj.Clear();
-				}
+				reductionObj->ReduceNoise(audioSegmentToTrack, outputTrack);
+
+				audioFinalProcessed = outputTrack.Buffer();
+
+				auto end = std::chrono::high_resolution_clock::now();
+
+				auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+				//std::cout << "Duration: " << duration << " ms" << std::endl;
 
 				//bored.zeroOutLowPowerChunks(audio_proc_cache, 512);
 
-				bored.processBuffer(audio_proc_cache, chunkSize, silenceThresholdDB);
+				bored.processBuffer(audioFinalProcessed, chunkSize, silenceThresholdDB);
 
 				FloatVector leftChannel;
 				FloatVector rightChannel;
 
-				bored.splitInterleavedStereo(audio_proc_cache, leftChannel, rightChannel);
+				bored.splitInterleavedStereo(audioFinalProcessed, leftChannel, rightChannel);
 
 				auto angle_calculation = bored.calculateNeedleAngle(leftChannel, rightChannel);
 
@@ -185,18 +171,11 @@ void AudioStream::AudioProcessing(float& angle, int chunkSize, float silenceThre
 				}
 
 				for (size_t i = 0; i < BUFFER_SIZE; i++) {
-					out_buffer[i * CHANNEL_COUNT] = audio_proc_cache[i * CHANNEL_COUNT];
-					out_buffer[i * CHANNEL_COUNT + 1] = audio_proc_cache[i * CHANNEL_COUNT + 1];
+					out_buffer[i * CHANNEL_COUNT] = audioFinalProcessed[i * CHANNEL_COUNT];
+					out_buffer[i * CHANNEL_COUNT + 1] = audioFinalProcessed[i * CHANNEL_COUNT + 1];
 				}
 
 				Pa_WriteStream(stream_, out_buffer, BUFFER_SIZE);
-
-				noise_cache.clear();
-				noise_cache.insert(noise_cache.end(), noise_tracks.begin(), noise_tracks.end());
-
-				audio_tracks.clear();
-				audio_cache.clear();
-				audio_proc_cache.clear();
 			}
 		}
 
