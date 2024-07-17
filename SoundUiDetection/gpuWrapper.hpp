@@ -5,3 +5,5 @@
 #include <vector>
 
 std::vector<float> correlationGpu(std::vector<float>& signal, std::vector<float>& noise);
+
+std::vector<float> correlationGpuOther(std::vector<float>& signal, std::vector<float>& noise);

@@ -10,7 +10,7 @@ int main(int argc, char** argv)
 	AudioStream* audioStream = nullptr;
 	NoiseReduction* reductionObj = nullptr;
 
-	float SAMPLE_RATE = 44100;
+	float SAMPLE_RATE = 48000;
 
 	uiWindow = new SoundWindow();
 

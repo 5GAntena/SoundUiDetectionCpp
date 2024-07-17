@@ -9,43 +9,6 @@ public:
 	}
 
 	/// <summary>
-	/// To be used idividually or with the one func bellow bufferToTracks, does what it says, splits a interleaved buffer into 2 channels or more?
-	/// </summary>
-	/// <param name="in"></param>
-	/// <param name="channels_count"></param>
-	/// <param name="channel"></param>
-	/// <param name="bufferSize"></param>
-	/// <returns></returns>
-	InputTrack bufferToOneTrack(const float* in, int channels_count, int channel, size_t bufferSize)
-	{
-		FloatVector buffer(bufferSize);
-
-		float* wptr = &buffer[0];
-
-		for (size_t frame = 0; frame < bufferSize; frame++)
-		{
-			size_t index = frame * channels_count + channel;
-
-			wptr[frame] = in[index];
-		}
-
-		return InputTrack(buffer);
-	}
-
-	std::vector<InputTrack> bufferToTracks(const float* in, int channel_count, size_t bufferSize)
-	{
-		std::vector<InputTrack> tracks;
-
-		for (int channel = 0; channel < channel_count; channel++)
-		{
-			InputTrack track = bufferToOneTrack(in, channel_count, channel, bufferSize);
-			tracks.push_back(track);
-		}
-
-		return tracks;
-	}
-
-	/// <summary>
 	/// Do you have a stereo buffer split into left and right channel and you want it to be inteleaved again, yeah
 	/// </summary>
 	/// <param name="leftChannel"></param>
@@ -127,12 +90,46 @@ public:
 		return buffer;
 	}
 
-	InputTrack copyBufferToVector(const float* paBuffer, int buffersize)
+	InputTrack copyBufferToVector(const float* paBuffer, unsigned long buffersize)
 	{
 		std::vector<float> outputVector(buffersize * 2);
 		std::copy(paBuffer, paBuffer + buffersize * 2, outputVector.begin());
 
 		return InputTrack(outputVector);
+	}
+
+	float calculateRMS(const std::vector<float>& buffer) {
+		float sum_of_squares = std::accumulate(buffer.begin(), buffer.end(), 0.0f,
+			[](float sum, float value) { return sum + value * value; });
+		return std::sqrt(sum_of_squares / buffer.size());
+	}
+
+	float calculateNeedleAngle(const std::vector<float>& leftChannel, const std::vector<float>& rightChannel)
+	{
+		if (leftChannel.empty() || rightChannel.empty())
+		{
+			return 0.0f;
+		}
+
+		float leftRMS = calculateRMS(leftChannel);
+		float rightRMS = calculateRMS(rightChannel);
+
+		float sumRMS = leftRMS + rightRMS;
+
+		if (sumRMS == 0.0f)
+		{
+			return 0.0f;
+		}
+
+		float normalizedDifference = (rightRMS - leftRMS) / sumRMS;
+
+		return normalizedDifference * 90.0f;
+	}
+
+	void scaleBuffer(std::vector<float>& buffer, float scaling_factor) {
+		for (auto& sample : buffer) {
+			sample *= scaling_factor;
+		}
 	}
 
 	float calculateChunkMaxDB(const std::vector<float>& chunk) {
@@ -173,60 +170,6 @@ public:
 			std::for_each(std::execution::par, buffer.begin(), buffer.end(), [](float& sample) {
 				sample = 0.0f;
 				});
-		}
-	}
-
-	float calculateRMS(const std::vector<float>& buffer) {
-		float sum_of_squares = std::accumulate(buffer.begin(), buffer.end(), 0.0f,
-			[](float sum, float value) { return sum + value * value; });
-		return std::sqrt(sum_of_squares / buffer.size());
-	}
-
-	float calculateNeedleAngle(const std::vector<float>& leftChannel, const std::vector<float>& rightChannel)
-	{
-		if (leftChannel.empty() || rightChannel.empty())
-		{
-			return 0.0f;
-		}
-
-		float leftRMS = calculateRMS(leftChannel);
-		float rightRMS = calculateRMS(rightChannel);
-
-		float sumRMS = leftRMS + rightRMS;
-
-		if (sumRMS == 0.0f)
-		{
-			return 0.0f;
-		}
-
-		float normalizedDifference = (rightRMS - leftRMS) / sumRMS;
-
-		return normalizedDifference * 90.0f;
-	}
-
-	void scaleBuffer(std::vector<float>& buffer, float scaling_factor) {
-		for (auto& sample : buffer) {
-			sample *= scaling_factor;
-		}
-	}
-
-	void zeroOutLowPowerChunks(std::vector<float>& buffer, size_t chunkSize) {
-		const float threshold_dB = -55.f;
-		const float threshold_linear = std::pow(10.0f, threshold_dB / 20.0f);
-
-		size_t overlap = chunkSize / 2;
-		size_t start = 0;
-
-		while (start + chunkSize <= buffer.size()) {
-			std::vector<float> chunk(buffer.begin() + start, buffer.begin() + start + chunkSize);
-
-			float rms = calculateRMS(chunk);
-
-			if (rms < threshold_linear) {
-				std::fill(buffer.begin() + start, buffer.begin() + std::min(start + chunkSize, buffer.size()), 0.0f);
-			}
-
-			start += overlap;
 		}
 	}
 

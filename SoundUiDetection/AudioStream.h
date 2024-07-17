@@ -15,7 +15,6 @@
 #include <execution>
 #include <chrono>
 #include <omp.h>
-
 #include "InputTrack.h"
 #include "OutputTrack.h"
 #include "NoiseReduction.h"
@@ -56,10 +55,8 @@ public:
 
 private:
 	float SAMPLE_RATE;
-	size_t BUFFER_SIZE = 2048;
+	unsigned long BUFFER_SIZE = 2048;
 	int CHANNEL_COUNT = 2;
-
-	size_t NOISE_TOTAL = CHANNEL_COUNT * BUFFER_SIZE * 5;
 
 	float* in_buffer = (float*)malloc(BUFFER_SIZE * 2 * sizeof(float));
 	float* out_buffer = (float*)malloc(BUFFER_SIZE * 2 * sizeof(float));
@@ -76,6 +73,9 @@ private:
 	std::vector<std::string> noise_paths;
 	FloatVector noiseTrack;
 
+	std::vector<FloatVector> movementTrack;
+	std::vector<FloatVector> movementVectorNormalized;
+
 	std::vector<float*> noiseArray;
 	int noise_index = 0;
 	bool preload = false;
@@ -85,8 +85,6 @@ private:
 
 	bool mapChoosen = false;
 
-	void gatherNoiseSamples(float* buffer);
-	void gatherNoiseTracks(size_t framesPerBuffer);
 	void preload_noise_tracks(std::string map_choose, bool is_rain, bool is_night);
 	void file_path_getter(std::string map_choose, bool is_rain, bool is_night);
 

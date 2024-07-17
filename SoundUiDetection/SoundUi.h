@@ -67,7 +67,7 @@ public:
 
     float mNewSensitivity = 6.0f;
     float mFreqSmoothingBands = 6.0f;
-    float mNoiseGain = 10.f;
+    float mNoiseGain = 13.f;
     float noiceAngle = 0.0f;
 
     int mChunkSize = 512;

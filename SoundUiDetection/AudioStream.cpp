@@ -65,20 +65,24 @@ void AudioStream::preload_noise_tracks(std::string map_choose, bool is_rain, boo
 		file_path_getter(folder_path, is_rain, is_night);
 	}
 
-	for (const auto& filename : noise_paths)
+	if (map_choose != "movement")
 	{
-		std::cout << filename << std::endl;
+		for (const auto& filename : noise_paths)
+		{
+			std::cout << filename << std::endl;
 
-		stereoBuffer = bored.load_wav(filename.c_str(), frames);
+			stereoBuffer = bored.load_wav(filename.c_str(), frames);
 
-		noiseTrack = bored.copyBufferToVector(stereoBuffer, frames).Buffer();
+			noiseTrack = bored.copyBufferToVector(stereoBuffer, frames).Buffer();
 
-		noiseVectorNormalized = noiseTrack;
+			noiseVectorNormalized = noiseTrack;
 
-		bored.normalize(noiseVectorNormalized);
+			bored.normalize(noiseVectorNormalized);
 
-		free(stereoBuffer);
+			free(stereoBuffer);
+		}
 	}
+
 }
 
 void AudioStream::AudioProcessing(float& angle, int chunkSize, float silenceThresholdDB, std::map<std::string, bool>& tarkov_maps, bool& reduction_started)
@@ -108,6 +112,7 @@ void AudioStream::AudioProcessing(float& angle, int chunkSize, float silenceThre
 
 			if (mapChoosen)
 			{
+
 				audioTrack = bored.copyBufferToVector(in_buffer, BUFFER_SIZE).Buffer();
 
 				audioVectorNormalized = audioTrack;
@@ -118,13 +123,10 @@ void AudioStream::AudioProcessing(float& angle, int chunkSize, float silenceThre
 
 				//hpFilter.processBuffer(audio_tracks);
 
-				// 2ms runtime for NOISE_TOTAL = CHANNEL_COUNT * BUFFER_SIZE * 2
-
-				auto start = std::chrono::high_resolution_clock::now();
-
 				auto correlation = correlationGpu(audioVectorNormalized, noiseVectorNormalized);
 
 				auto maxIt = std::max_element(correlation.begin(), correlation.end());
+
 				int bestMatchIndex = std::distance(correlation.begin(), maxIt);
 
 				FloatVector bestMatchingNoiseSegment(noiseTrack.begin() + bestMatchIndex, noiseTrack.begin() + bestMatchIndex + audioVectorNormalized.size());
@@ -148,20 +150,20 @@ void AudioStream::AudioProcessing(float& angle, int chunkSize, float silenceThre
 
 				audioFinalProcessed = outputTrack.Buffer();
 
+				/*auto start = std::chrono::high_resolution_clock::now();
+
 				auto end = std::chrono::high_resolution_clock::now();
 
 				auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
-				//std::cout << "Duration: " << duration << " ms" << std::endl;
-
-				//bored.zeroOutLowPowerChunks(audio_proc_cache, 512);
+				std::cout << "Duration: " << duration << " ms" << std::endl;*/
 
 				bored.processBuffer(audioFinalProcessed, chunkSize, silenceThresholdDB);
 
 				FloatVector leftChannel;
 				FloatVector rightChannel;
 
-				bored.splitInterleavedStereo(audioFinalProcessed, leftChannel, rightChannel);
+				bored.splitInterleavedStereo(audioTrack, leftChannel, rightChannel);
 
 				auto angle_calculation = bored.calculateNeedleAngle(leftChannel, rightChannel);
 
@@ -171,11 +173,19 @@ void AudioStream::AudioProcessing(float& angle, int chunkSize, float silenceThre
 				}
 
 				for (size_t i = 0; i < BUFFER_SIZE; i++) {
-					out_buffer[i * CHANNEL_COUNT] = audioFinalProcessed[i * CHANNEL_COUNT];
-					out_buffer[i * CHANNEL_COUNT + 1] = audioFinalProcessed[i * CHANNEL_COUNT + 1];
+					out_buffer[i * CHANNEL_COUNT] = audioTrack[i * CHANNEL_COUNT];
+					out_buffer[i * CHANNEL_COUNT + 1] = audioTrack[i * CHANNEL_COUNT + 1];
 				}
 
+				auto start = std::chrono::high_resolution_clock::now();
+
 				Pa_WriteStream(stream_, out_buffer, BUFFER_SIZE);
+
+				auto end = std::chrono::high_resolution_clock::now();
+
+				auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+				std::cout << "Duration: " << duration << " ms" << std::endl;
 			}
 		}
 
@@ -283,7 +293,6 @@ void AudioStream::findInputDeviceIndex()
 
 	for (int i = 0; i < numDevices; ++i)
 	{
-
 		if (inputDeviceInfo && std::string(Pa_GetDeviceInfo(i)->name) == std::string(inputDeviceInfo->name) && inputDeviceInfo->maxInputChannels > 0)
 		{
 			bored.addHashesBelow("Input Device found: " + std::string(inputDeviceInfo->name));
