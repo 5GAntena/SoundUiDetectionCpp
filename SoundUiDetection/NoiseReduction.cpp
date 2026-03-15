@@ -150,7 +150,7 @@ private:
     void FillFirstHistoryWindow();
     void ApplyFreqSmoothing(FloatVector& gains);
     void GatherStatistics(Statistics& statistics);
-    inline bool Classify(const Statistics& statistics, int band);
+    inline bool Classify(const Statistics& statistics, unsigned nWindows, int band);
     void ReduceNoise(const Statistics& statistics, OutputTrack* outputTrack);
     void RotateHistoryWindows();
     void FinishTrackStatistics(Statistics& statistics);
@@ -521,11 +521,11 @@ void NoiseReductionWorker::RotateHistoryWindows()
 void NoiseReductionWorker::FinishTrackStatistics(Statistics& statistics)
 {
     const auto windows = statistics.mTrackWindows;
-    const auto multiplier = statistics.mTotalWindows;
-    const auto denom = windows + multiplier;
 
     // Combine averages in case of multiple profile tracks.
-    if (windows)
+    if (windows) {
+        const auto multiplier = statistics.mTotalWindows;
+        const auto denom = windows + multiplier;
         for (size_t ii = 0, nn = statistics.mMeans.size(); ii < nn; ++ii) {
             auto& mean = statistics.mMeans[ii];
             auto& sum = statistics.mSums[ii];
@@ -533,10 +533,10 @@ void NoiseReductionWorker::FinishTrackStatistics(Statistics& statistics)
             // Reset for next track
             sum = 0;
         }
-
-    // Reset for next track
-    statistics.mTrackWindows = 0;
-    statistics.mTotalWindows = denom;
+        // Reset for next track
+        statistics.mTrackWindows = 0;
+        statistics.mTotalWindows = denom;
+    }
 }
 
 void NoiseReductionWorker::FinishTrack
@@ -594,38 +594,30 @@ void NoiseReductionWorker::GatherStatistics(Statistics& statistics)
 // Return true iff the given band of the "center" window looks like noise.
 // Examine the band in a few neighboring windows to decide.
 inline
-bool NoiseReductionWorker::Classify(const Statistics& statistics, int band)
+bool NoiseReductionWorker::Classify(const Statistics& statistics, unsigned nWindows, int band)
 {
     switch (mMethod) {
-#ifdef OLD_METHOD_AVAILABLE
-    case DM_OLD_METHOD:
-    {
-        float min = mQueue[0]->mSpectrums[band];
-        for (unsigned ii = 1; ii < mNWindowsToExamine; ++ii)
-            min = std::min(min, mQueue[ii]->mSpectrums[band]);
-        return min <= mOldSensitivityFactor * statistics.mNoiseThreshold[band];
-    }
-#endif
     // New methods suppose an exponential distribution of power values
-    // in the noise; NEW sensitivity is meant to be log of probability
+    // in the noise; NEW sensitivity (which is nonnegative) is meant to be
+    // the negative of a log of probability (so the log is nonpositive)
     // that noise strays above the threshold.  Call that probability
     // 1 - F.  The quantile function of an exponential distribution is
-    // log (1 - F) * mean.  Thus simply multiply mean by sensitivity
+    // - log (1 - F) * mean.  Thus simply multiply mean by sensitivity
     // to get the threshold.
     case DM_MEDIAN:
-        // This method examines the window and all windows
-        // that partly overlap it, and takes a median, to
+        // This method examines the window and all other windows
+        // whose centers lie on or between its boundaries, and takes a median, to
         // avoid being fooled by up and down excursions into
         // either the mistake of classifying noise as not noise
         // (leaving a musical noise chime), or the opposite
         // (distorting the signal with a drop out).
-        if (mNWindowsToExamine <= 3)
+        if (nWindows <= 3)
             // No different from second greatest.
             goto secondGreatest;
-        else if (mNWindowsToExamine <= 5)
+        else if (nWindows <= 5)
         {
             float greatest = 0.0, second = 0.0, third = 0.0;
-            for (unsigned ii = 0; ii < mNWindowsToExamine; ++ii) {
+            for (unsigned ii = 0; ii < nWindows; ++ii) {
                 const float power = mQueue[ii]->mSpectrums[band];
                 if (power >= greatest)
                     third = second, second = greatest, greatest = power;
@@ -637,6 +629,7 @@ bool NoiseReductionWorker::Classify(const Statistics& statistics, int band)
             return third <= mNewSensitivity * statistics.mMeans[band];
         }
         else {
+            // not implemented
             assert(false);
             return true;
         }
@@ -647,7 +640,7 @@ bool NoiseReductionWorker::Classify(const Statistics& statistics, int band)
         // should be less prone to distortions and more prone to
         // chimes.
         float greatest = 0.0, second = 0.0;
-        for (unsigned ii = 0; ii < mNWindowsToExamine; ++ii) {
+        for (unsigned ii = 0; ii < nWindows; ++ii) {
             const float power = mQueue[ii]->mSpectrums[band];
             if (power >= greatest)
                 second = greatest, greatest = power;
@@ -665,9 +658,11 @@ bool NoiseReductionWorker::Classify(const Statistics& statistics, int band)
 void NoiseReductionWorker::ReduceNoise
 (const Statistics& statistics, OutputTrack* outputTrack)
 {
+    auto nWindows = std::min(mNWindowsToExamine, (unsigned)mHistoryLen);
+
     // Raise the gain for elements in the center of the sliding history
     // or, if isolating noise, zero out the non-noise
-    {
+    if (nWindows > mCenter) {
         float* pGain = &mQueue[mCenter]->mGains[0];
         if (mNoiseReductionChoice == NRC_ISOLATE_NOISE) {
             // All above or below the selected frequency range is non-noise
@@ -675,7 +670,7 @@ void NoiseReductionWorker::ReduceNoise
             std::fill(pGain + mBinHigh, pGain + mSpectrumSize, 0.0f);
             pGain += mBinLow;
             for (int jj = mBinLow; jj < mBinHigh; ++jj) {
-                const bool isNoise = Classify(statistics, jj);
+                const bool isNoise = Classify(statistics, nWindows, jj);
                 *pGain++ = isNoise ? 1.0 : 0.0;
             }
         }
@@ -685,7 +680,7 @@ void NoiseReductionWorker::ReduceNoise
             std::fill(pGain + mBinHigh, pGain + mSpectrumSize, 1.0f);
             pGain += mBinLow;
             for (int jj = mBinLow; jj < mBinHigh; ++jj) {
-                const bool isNoise = Classify(statistics, jj);
+                const bool isNoise = Classify(statistics, nWindows, jj);
                 if (!isNoise)
                     *pGain = 1.0;
                 ++pGain;
