@@ -75,10 +75,6 @@ void AudioStream::preload_noise_tracks(std::string map_choose, bool is_rain, boo
 
 			noiseTrack = bored.copyBufferToVector(stereoBuffer, frames).Buffer();
 
-			noiseVectorNormalized = noiseTrack;
-
-			bored.normalize(noiseVectorNormalized);
-
 			free(stereoBuffer);
 		}
 
@@ -119,34 +115,9 @@ void AudioStream::AudioProcessing(float& angle, int chunkSize, float silenceThre
 
 				audioTrack = bored.copyBufferToVector(in_buffer, BUFFER_SIZE).Buffer();
 
-				audioVectorNormalized = audioTrack;
 
-				bored.normalize(audioVectorNormalized);
-
-				//static HighPassFilter hpFilter(450.0f, SAMPLE_RATE);
-
-				//hpFilter.processBuffer(audio_tracks);
-
-				auto correlation = correlationGpu(audioVectorNormalized, noiseVectorNormalized);
-
-				auto maxIt = std::max_element(correlation.begin(), correlation.end());
-
-				int bestMatchIndex = std::distance(correlation.begin(), maxIt);
-
-				FloatVector bestMatchingNoiseSegment(noiseTrack.begin() + bestMatchIndex, noiseTrack.begin() + bestMatchIndex + audioVectorNormalized.size());
-
-				float audio_rms = bored.calculateRMS(audioTrack);
-
-				float noise_rms = bored.calculateRMS(bestMatchingNoiseSegment);
-
-				rmsHistory.push_back(audio_rms);
-			if (rmsHistory.size() > RMS_WINDOW) rmsHistory.pop_front();
-			FloatVector sortedRms(rmsHistory.begin(), rmsHistory.end());
-			std::sort(sortedRms.begin(), sortedRms.end());
-			float stable_audio_rms = sortedRms[sortedRms.size() / 2];
-			float scaling_factor = stable_audio_rms / noise_rms;
-
-				bored.scaleBuffer(bestMatchingNoiseSegment, scaling_factor);
+				// Only process if noise profile has been built
+				if (!noiseProfiled) return;
 
 				// Split interleaved stereo into separate channels for correct FFT processing
 				FloatVector leftInput, rightInput;

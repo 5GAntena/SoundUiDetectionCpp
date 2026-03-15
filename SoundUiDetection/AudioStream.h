@@ -66,24 +66,16 @@ private:
 	PaStreamParameters outputParameters;
 
 	float* stereoBuffer;
-	FloatVector noiseVectorNormalized;
-	FloatVector audioVectorNormalized;
 	sf_count_t frames;
 	const char* filename;
 
 	std::vector<std::string> noise_paths;
 	FloatVector noiseTrack;
 
-	std::vector<FloatVector> movementTrack;
-	std::vector<FloatVector> movementVectorNormalized;
 
-	std::vector<float*> noiseArray;
-	int noise_index = 0;
 	bool preload = false;
 	bool noiseProfiled = false;
 
-	std::deque<float> rmsHistory;
-	static constexpr size_t RMS_WINDOW = 20;
 
 	FloatVector audioTrack;
 	FloatVector audioFinalProcessed;
