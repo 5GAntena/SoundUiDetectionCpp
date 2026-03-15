@@ -81,6 +81,10 @@ void AudioStream::preload_noise_tracks(std::string map_choose, bool is_rain, boo
 
 			free(stereoBuffer);
 		}
+
+		auto noiseProfileTrack = InputTrack(noiseTrack);
+		reductionObj->ProfileNoise(noiseProfileTrack);
+		noiseProfiled = true;
 	}
 
 }
@@ -135,20 +139,42 @@ void AudioStream::AudioProcessing(float& angle, int chunkSize, float silenceThre
 
 				float noise_rms = bored.calculateRMS(bestMatchingNoiseSegment);
 
-				float scaling_factor = audio_rms / noise_rms;
+				rmsHistory.push_back(audio_rms);
+			if (rmsHistory.size() > RMS_WINDOW) rmsHistory.pop_front();
+			FloatVector sortedRms(rmsHistory.begin(), rmsHistory.end());
+			std::sort(sortedRms.begin(), sortedRms.end());
+			float stable_audio_rms = sortedRms[sortedRms.size() / 2];
+			float scaling_factor = stable_audio_rms / noise_rms;
 
 				bored.scaleBuffer(bestMatchingNoiseSegment, scaling_factor);
 
-				auto audioSegmentToTrack = InputTrack(audioTrack);
-				auto noiseSegmentToTrack = InputTrack(bestMatchingNoiseSegment);
+				// Split interleaved stereo into separate channels for correct FFT processing
+				FloatVector leftInput, rightInput;
+				leftInput.reserve(audioTrack.size() / 2);
+				rightInput.reserve(audioTrack.size() / 2);
+				for (size_t i = 0; i < audioTrack.size() / 2; i++) {
+					leftInput.push_back(audioTrack[i * 2]);
+					rightInput.push_back(audioTrack[i * 2 + 1]);
+				}
 
-				reductionObj->ProfileNoise(noiseSegmentToTrack);
+				auto leftTrack = InputTrack(leftInput);
+				OutputTrack leftOutput;
+				reductionObj->ReduceNoise(leftTrack, leftOutput);
 
-				OutputTrack outputTrack;
+				auto rightTrack = InputTrack(rightInput);
+				OutputTrack rightOutput;
+				reductionObj->ReduceNoise(rightTrack, rightOutput);
 
-				reductionObj->ReduceNoise(audioSegmentToTrack, outputTrack);
+				FloatVector leftProcessed = leftOutput.Buffer();
+				FloatVector rightProcessed = rightOutput.Buffer();
 
-				audioFinalProcessed = outputTrack.Buffer();
+				// Re-interleave into audioFinalProcessed
+				audioFinalProcessed.resize(audioTrack.size());
+				size_t outLen = std::min(leftProcessed.size(), rightProcessed.size());
+				for (size_t i = 0; i < outLen; i++) {
+					audioFinalProcessed[i * 2]     = leftProcessed[i];
+					audioFinalProcessed[i * 2 + 1] = rightProcessed[i];
+				}
 
 				/*auto start = std::chrono::high_resolution_clock::now();
 
@@ -173,8 +199,8 @@ void AudioStream::AudioProcessing(float& angle, int chunkSize, float silenceThre
 				}
 
 				for (size_t i = 0; i < BUFFER_SIZE; i++) {
-					out_buffer[i * CHANNEL_COUNT] = audioTrack[i * CHANNEL_COUNT];
-					out_buffer[i * CHANNEL_COUNT + 1] = audioTrack[i * CHANNEL_COUNT + 1];
+					out_buffer[i * CHANNEL_COUNT] = audioFinalProcessed[i * CHANNEL_COUNT];
+					out_buffer[i * CHANNEL_COUNT + 1] = audioFinalProcessed[i * CHANNEL_COUNT + 1];
 				}
 
 				auto start = std::chrono::high_resolution_clock::now();

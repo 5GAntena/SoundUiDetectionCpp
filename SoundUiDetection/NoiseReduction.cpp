@@ -665,25 +665,29 @@ void NoiseReductionWorker::ReduceNoise
     if (nWindows > mCenter) {
         float* pGain = &mQueue[mCenter]->mGains[0];
         if (mNoiseReductionChoice == NRC_ISOLATE_NOISE) {
-            // All above or below the selected frequency range is non-noise
+            // Keep Classify-based logic for isolate mode
             std::fill(pGain, pGain + mBinLow, 0.0f);
             std::fill(pGain + mBinHigh, pGain + mSpectrumSize, 0.0f);
             pGain += mBinLow;
             for (int jj = mBinLow; jj < mBinHigh; ++jj) {
                 const bool isNoise = Classify(statistics, nWindows, jj);
-                *pGain++ = isNoise ? 1.0 : 0.0;
+                *pGain++ = isNoise ? 1.0f : 0.0f;
             }
-        }
-        else {
-            // All above or below the selected frequency range is non-noise
+        } else {
+            // Wiener soft mask for NRC_REDUCE_NOISE and NRC_LEAVE_RESIDUE
             std::fill(pGain, pGain + mBinLow, 1.0f);
             std::fill(pGain + mBinHigh, pGain + mSpectrumSize, 1.0f);
             pGain += mBinLow;
-            for (int jj = mBinLow; jj < mBinHigh; ++jj) {
-                const bool isNoise = Classify(statistics, nWindows, jj);
-                if (!isNoise)
-                    *pGain = 1.0;
-                ++pGain;
+            const float* pMean = &statistics.mMeans[mBinLow];
+            for (int jj = mBinLow; jj < mBinHigh; ++jj, ++pGain, ++pMean) {
+                const float spectrum = mQueue[mCenter]->mSpectrums[jj];
+                const float mean = *pMean;
+                if (mean > 0.0f) {
+                    const float snr = std::max(spectrum / mean - 1.0f, 0.0f);
+                    *pGain = std::max(snr / (1.0f + snr), mNoiseAttenFactor);
+                } else {
+                    *pGain = mNoiseAttenFactor;
+                }
             }
         }
     }

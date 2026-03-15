@@ -14,6 +14,7 @@
 #include <numeric>
 #include <execution>
 #include <chrono>
+#include <deque>
 #include <omp.h>
 #include "InputTrack.h"
 #include "OutputTrack.h"
@@ -79,6 +80,10 @@ private:
 	std::vector<float*> noiseArray;
 	int noise_index = 0;
 	bool preload = false;
+	bool noiseProfiled = false;
+
+	std::deque<float> rmsHistory;
+	static constexpr size_t RMS_WINDOW = 20;
 
 	FloatVector audioTrack;
 	FloatVector audioFinalProcessed;

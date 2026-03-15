@@ -42,10 +42,10 @@ int main(int argc, char** argv)
 
 		if (uiWindow->reduction_reseted)
 		{
-			reductionObj->~NoiseReduction();
+			delete reductionObj;
 			reductionObj = nullptr;
 
-;			audioStream->~AudioStream();
+			delete audioStream;
 			audioStream = nullptr;
 
 			for (auto& map : uiWindow->tarkov_maps)
